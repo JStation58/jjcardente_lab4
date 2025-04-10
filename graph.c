@@ -65,23 +65,12 @@ void plot_data(void * sContextAdr, volatile uint16_t data[128], void * rectAdr) 
 
     init_Grid(sContextAdr, rectAdr);
     GrContextForegroundSet(sContextAdr, ClrYellow);
-    float fScale = (VIN_RANGE * PIXELS_PER_DIV)/((1 << ADC_BITS) * fVoltsPerDiv[voltsPerDiv]);
-    int x;
-    int y[2] = {LCD_VERTICAL_MAX/2 - (int)roundf(fScale * ((int)(data[0]) - ADC_OFFSET)) ,0};
-    if (y[0] > LCD_VERTICAL_MAX) {
-        y[0] = LCD_VERTICAL_MAX - 1;
-    } else if (y[0] < 0) {
-        y[0] = 0;
+    volatile uint16_t buffer[128];
+    for (x = 0; x < 128; x++) {
+        buffer[x] = data[x];
     }
     for (x = 1; x < 128; x++) {
-        y[1] = LCD_VERTICAL_MAX/2 - (int)roundf(fScale * ((int)(data[x]) - ADC_OFFSET));
-        if (y[0] > LCD_VERTICAL_MAX) {
-           y[0] = LCD_VERTICAL_MAX - 1;
-        } else if (y[0] < 0) {
-           y[0] = 0;
-        }
-        GrLineDraw(sContextAdr, (x-1), (y[0]), (x), (y[1]));
-        y[0] = y[1];
+        GrLineDraw(sContextAdr, (x-1), (buffer[x-1]), (x), (buffer[1]));
     }
     init_Measure(sContextAdr);
 }

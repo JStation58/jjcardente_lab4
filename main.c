@@ -16,7 +16,7 @@
 #include <stdbool.h>
 #include "driverlib/interrupt.h"
 
-/*#include "driverlib/sysctl.h"
+#include "driverlib/sysctl.h"
 #include "driverlib/interrupt.h"
 #include "Crystalfontz128x128_ST7735.h"
 #include <stdio.h>
@@ -40,6 +40,7 @@
 
 
 volatile uint16_t Data_Buffer[128];
+volatile uint16_t Scaled_Buffer[128];
 
 extern volatile uint16_t gADCBuffer[ADC_BUFFER_SIZE];
 extern volatile int32_t gADCBufferIndex;
@@ -53,7 +54,7 @@ extern volatile int fifo_tail;
 volatile int tSet = 11;
 
 
-*/
+
 
 uint32_t gSystemClock = 120000000; // [Hz] system clock frequency
 
@@ -66,7 +67,7 @@ int main(void)
 
     // hardware initialization goes here
 
-/* // Enable the Floating Point Unit, and permit ISRs to use it
+ // Enable the Floating Point Unit, and permit ISRs to use it
     FPUEnable();
     FPULazyStackingEnable();
 
@@ -92,6 +93,7 @@ int main(void)
 
     init_Grid(&sContext, &rectFullScreen);
     init_Measure(&sContext); */
+
     /* Start BIOS */
     BIOS_start();
 
@@ -136,11 +138,15 @@ int main(void)
     return (0);
 }
 
-void Waveform_func(UArg arg1, UArg arg2) {
+void Waveform_func(void) {
     IntMasterEnable();
-
     while (true) {
-        // do nothing
+        Semaphore_pend(Main_Graphics, BIOS_WAIT_FOREVER);
+        int index = Trigger() - LCD_DIMENSION/2;
+        for (int x = 0; x < LCD_VERTICAL_MAX; x++)
+            Data_Buffer[x] = gADCBuffer[ADC_BUFFER_WRAP(index + x)];
+        }
+        Semaphore_post(Main_Graphics, Processing_func);
     }
 }
 
@@ -148,7 +154,18 @@ void Processing_func(UArg arg1, UArg arg2) {
     IntMasterEnable();
 
     while (true) {
-        // do nothing
+        Semaphore_pend(Main_Graphics, BIOS_WAIT_FOREVER);
+        float fScale = (VIN_RANGE * PIXELS_PER_DIV)/((1 << ADC_BITS) * fVoltsPerDiv[voltsPerDiv]);
+        for (x = 1; x < 128; x++) {
+            Scaled_Data[x] = LCD_VERTICAL_MAX/2 - (int)roundf(fScale * ((int)(Data_Buffer[x]) - ADC_OFFSET));
+            if (Scaled_Data[x] > LCD_VERTICAL_MAX - 1) {
+                Scaled_Data[x] = LCD_VERTICAL_MAX - 1;
+            } else if (Scaled_Data[x] < 0) {
+                Scaled_Data[x] = 0;
+            }
+        }
+        Semaphore_post(Main_Graphics, Display_func);
+        Semaphore_post(Main_Graphics, Waveform_func);
     }
 }
 
@@ -156,7 +173,9 @@ void Display_func(UArg arg1, UArg arg2) {
     IntMasterEnable();
 
     while (true) {
-        // do nothing
+        Semaphore_pend(Main_Graphics, BIOS_WAIT_FOREVER);
+        plot_data(&sContext, Data_Buffer, &rectFullScreen);
+        GrFlush(&sContext); // flush the frame buffer to the LCD
     }
 }
 
