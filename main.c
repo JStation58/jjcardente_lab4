@@ -136,7 +136,7 @@ int main(void)
     return (0);
 }
 
-void task0_func(UArg arg1, UArg arg2) {
+void Waveform_func(UArg arg1, UArg arg2) {
     IntMasterEnable();
 
     while (true) {
@@ -144,7 +144,25 @@ void task0_func(UArg arg1, UArg arg2) {
     }
 }
 
-/*void signal_init() {
+void Processing_func(UArg arg1, UArg arg2) {
+    IntMasterEnable();
+
+    while (true) {
+        // do nothing
+    }
+}
+
+void Display_func(UArg arg1, UArg arg2) {
+    IntMasterEnable();
+
+    while (true) {
+        // do nothing
+    }
+}
+
+
+
+void signal_init() {
 
     // configure M0PWM2, at GPIO PF2, BoosterPack 1 header C1 pin 2
     SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOF);
@@ -164,6 +182,8 @@ void task0_func(UArg arg1, UArg arg2) {
     PWMGenEnable(PWM0_BASE, PWM_GEN_1);
 
 }
+
+
 
 int Trigger(void) { // search for rising edge trigger
 
@@ -189,4 +209,4 @@ int Trigger(void) { // search for rising edge trigger
     return x;
 }
 
- * */
+

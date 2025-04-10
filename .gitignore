@@ -28,7 +28,6 @@ Release/
 *.r64
 
 # Project workspace settings (optional, but safe to ignore)
-*.ccsproject
 *.cproject
 *.project
 .settings/
