@@ -3,40 +3,41 @@
 # # / forward slash includes everythin in the file path
 
 # # Code Composer Studio build artifacts
-# Debug/
-# Release/
-# *.launches
-# *.launch
+Debug/
+Release/
+*.launches
+*.launch
 
 # # CCS metadata that is user/machine-specific
-# *.log
-# *.hwi
-# *.map
-# *.xml
-# *.out
-# *.d
-# *.dep
-# *.obj
-# *.o
-# *.asm
-# *.lst
-# *.bin
-# *.hex
-# *.r43
-# *.r41
-# *.r55
-# *.r64
+*.log
+*.hwi
+*.map
+*.xml
+*.out
+*.d
+*.dep
+*.obj
+*.o
+*.asm
+*.lst
+*.bin
+*.hex
+*.r43
+*.r41
+*.r55
+*.r64
 
 # # Project workspace settings (optional, but safe to ignore)
-# *.cproject
-# *.project
-# .settings/
+*.cproject
+*.project
+.settings/
 
 # # Backup and temporary files
-# *~
-# *.bak
-# *.swp
-# *.tmp
-# *.DS_Store
-# Thumbs.db
+*~
+*.bak
+*.swp
+*.tmp
+*.DS_Store
+Thumbs.db
 
+src/
