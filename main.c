@@ -37,10 +37,17 @@
 #define ADC_BUFFER_WRAP(i) ((i) & (ADC_BUFFER_SIZE - 1))
 #define LCD_DIMENSION 128
 #define ADC_OFFSET 2048
+#define PIXELS_PER_DIV 20
+#define ADC_BITS 12
+#define VIN_RANGE 3.3
 
+volatile float fVoltsPerDiv[5] = {0.1, 0.2, 0.5, 1, 2};
 
 volatile uint16_t Data_Buffer[128];
 volatile uint16_t Scaled_Buffer[128];
+
+tContext sContext;
+
 
 extern volatile uint16_t gADCBuffer[ADC_BUFFER_SIZE];
 extern volatile int32_t gADCBufferIndex;
@@ -52,9 +59,6 @@ uint32_t count_loaded = 0;
 extern volatile int fifo_head;
 extern volatile int fifo_tail;
 volatile int tSet = 11;
-
-
-
 
 uint32_t gSystemClock = 120000000; // [Hz] system clock frequency
 
@@ -77,9 +81,12 @@ int main(void)
     Crystalfontz128x128_Init(); // Initialize the LCD display driver
     Crystalfontz128x128_SetOrientation(LCD_ORIENTATION_UP); // set screen orientation
 
-    tContext sContext;
+
     GrContextInit(&sContext, &g_sCrystalfontz128x128); // Initialize the grlib graphics context
     GrContextFontSet(&sContext, &g_sFontFixed6x8); // select font
+
+    // full-screen rectangle
+    tRectangle rectFullScreen = {0, 0, (GrContextDpyWidthGet(&sContext)-1), (GrContextDpyHeightGet(&sContext)-1)};
 
     ButtonInit(); //Initialize Buttons
     signal_init();
@@ -88,11 +95,8 @@ int main(void)
     init_ADC1();
     init_ADC_Timer();
 
-    // full-screen rectangle
-    tRectangle rectFullScreen = {0, 0, GrContextDpyWidthGet(&sContext)-1, GrContextDpyHeightGet(&sContext)-1};
-
     init_Grid(&sContext, &rectFullScreen);
-    init_Measure(&sContext); */
+    init_Measure(&sContext);
 
     /* Start BIOS */
     BIOS_start();
@@ -143,19 +147,22 @@ void Waveform_func(void) {
     while (true) {
         Semaphore_pend(Main_Graphics, BIOS_WAIT_FOREVER);
         int index = Trigger() - LCD_DIMENSION/2;
-        for (int x = 0; x < LCD_VERTICAL_MAX; x++)
+        int x;
+        for (x = 0; x < LCD_VERTICAL_MAX; x++) {
             Data_Buffer[x] = gADCBuffer[ADC_BUFFER_WRAP(index + x)];
         }
-        Semaphore_post(Main_Graphics, Processing_func);
+        Semaphore_post(Main_Graphics);
     }
 }
 
-void Processing_func(UArg arg1, UArg arg2) {
+void Processing_func(void) {
     IntMasterEnable();
 
     while (true) {
         Semaphore_pend(Main_Graphics, BIOS_WAIT_FOREVER);
         float fScale = (VIN_RANGE * PIXELS_PER_DIV)/((1 << ADC_BITS) * fVoltsPerDiv[voltsPerDiv]);
+        uint32_t Scaled_Data[128] = {0};
+        int x;
         for (x = 1; x < 128; x++) {
             Scaled_Data[x] = LCD_VERTICAL_MAX/2 - (int)roundf(fScale * ((int)(Data_Buffer[x]) - ADC_OFFSET));
             if (Scaled_Data[x] > LCD_VERTICAL_MAX - 1) {
@@ -164,15 +171,16 @@ void Processing_func(UArg arg1, UArg arg2) {
                 Scaled_Data[x] = 0;
             }
         }
-        Semaphore_post(Main_Graphics, Display_func);
-        Semaphore_post(Main_Graphics, Waveform_func);
+        Semaphore_post(Main_Graphics);
+        Semaphore_post(Main_Graphics);
     }
 }
 
-void Display_func(UArg arg1, UArg arg2) {
+void Display_func(void) {
     IntMasterEnable();
 
     while (true) {
+        extern tRectangle rectFullScreen;
         Semaphore_pend(Main_Graphics, BIOS_WAIT_FOREVER);
         plot_data(&sContext, Data_Buffer, &rectFullScreen);
         GrFlush(&sContext); // flush the frame buffer to the LCD

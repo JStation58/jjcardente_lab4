@@ -26,7 +26,6 @@
 #define ADC_BITS 12
 #define VIN_RANGE 3.3
 
-volatile float fVoltsPerDiv[5] = {0.1, 0.2, 0.5, 1, 2};
 const char * const gVoltageScaleStr[5] = {"100 mV", "200 mV", "500 mV", "1 V", "2 V"};
 const char * const gTimeScaleStr[12] = {"100 ms", "50 ms", "20 ms", "10 ms", "5 ms", "2 ms", "1 ms", "500 us", "200 us", "100 us", "50 us", "20 us"};
 extern volatile int voltsPerDiv;
@@ -66,11 +65,12 @@ void plot_data(void * sContextAdr, volatile uint16_t data[128], void * rectAdr) 
     init_Grid(sContextAdr, rectAdr);
     GrContextForegroundSet(sContextAdr, ClrYellow);
     volatile uint16_t buffer[128];
+    int x;
     for (x = 0; x < 128; x++) {
         buffer[x] = data[x];
     }
     for (x = 1; x < 128; x++) {
-        GrLineDraw(sContextAdr, (x-1), (buffer[x-1]), (x), (buffer[1]));
+        GrLineDraw(sContextAdr, (x-1), (buffer[x-1]), (x), (buffer[x]));
     }
     init_Measure(sContextAdr);
 }
@@ -88,7 +88,7 @@ void init_Measure(void * sContextAdr) {
     //Draw Volts Per Division
     GrStringDraw(sContextAdr, gVoltageScaleStr[voltsPerDiv] , 25, 15, 10, 1);
 
-    //Draw Volts Per Division
+    //Draw Time Per Division
     GrStringDraw(sContextAdr, gTimeScaleStr[tSet] , 25, 80, 10, 1);
 
     //Display CPU Load
