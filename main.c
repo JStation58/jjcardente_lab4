@@ -142,24 +142,24 @@ int main(void)
     return (0);
 }
 
-void Waveform_func(void) {
+void WaveformTask_func(Uarg arg1, Uarg arg2) {
     IntMasterEnable();
     while (true) {
-        Semaphore_pend(Main_Graphics, BIOS_WAIT_FOREVER);
+        Semaphore_pend(WaveformSem, BIOS_WAIT_FOREVER);
         int index = Trigger() - LCD_DIMENSION/2;
         int x;
         for (x = 0; x < LCD_VERTICAL_MAX; x++) {
             Data_Buffer[x] = gADCBuffer[ADC_BUFFER_WRAP(index + x)];
         }
-        Semaphore_post(Main_Graphics);
+        Semaphore_post(ProcessingSem);
     }
 }
 
-void Processing_func(void) {
+void ProcessingTask_func(Uarg arg1, Uarg arg2) {
     IntMasterEnable();
 
     while (true) {
-        Semaphore_pend(Main_Graphics, BIOS_WAIT_FOREVER);
+        Semaphore_pend(ProcessingSem, BIOS_WAIT_FOREVER);
         float fScale = (VIN_RANGE * PIXELS_PER_DIV)/((1 << ADC_BITS) * fVoltsPerDiv[voltsPerDiv]);
         uint32_t Scaled_Data[128] = {0};
         int x;
@@ -167,26 +167,69 @@ void Processing_func(void) {
             Scaled_Data[x] = LCD_VERTICAL_MAX/2 - (int)roundf(fScale * ((int)(Data_Buffer[x]) - ADC_OFFSET));
             if (Scaled_Data[x] > LCD_VERTICAL_MAX - 1) {
                 Scaled_Data[x] = LCD_VERTICAL_MAX - 1;
-            } else if (Scaled_Data[x] < 0) {
-                Scaled_Data[x] = 0;
             }
         }
-        Semaphore_post(Main_Graphics);
-        Semaphore_post(Main_Graphics);
+        Semaphore_post(DisplaySem);
+        Semaphore_post(WaveformSem);
     }
 }
 
-void Display_func(void) {
+void DisplayTask_func(Uarg arg1, Uarg arg2) {
     IntMasterEnable();
 
     while (true) {
+        Semaphore_pend(DisplaySem, BIOS_WAIT_FOREVER);
         extern tRectangle rectFullScreen;
-        Semaphore_pend(Main_Graphics, BIOS_WAIT_FOREVER);
         plot_data(&sContext, Data_Buffer, &rectFullScreen);
         GrFlush(&sContext); // flush the frame buffer to the LCD
     }
 }
 
+void clk_func(Uarg arg1) {
+    Semaphore_post(ButtonSem);
+}
+
+void Button_Task(Uarg arg1, Uarg arg2) {
+    while(true) {
+        Semaphore_pend(ButtonSem, BIOS_WAIT_FOREVER);
+        uint32_t gpio_buttons =
+                    ~GPIOPinRead(GPIO_PORTJ_BASE, 0xff) & (GPIO_PIN_1 | GPIO_PIN_0); // EK-TM4C1294XL buttons in positions 0 and 1
+                    gpio_buttons |= (~GPIOPinRead(GPIO_PORTH_BASE, 0xff) & (GPIO_PIN_1))<< 1;
+                    gpio_buttons |= (~GPIOPinRead(GPIO_PORTK_BASE, 0xff) & (GPIO_PIN_6))>> 3;
+                    gpio_buttons |= (~GPIOPinRead(GPIO_PORTD_BASE, 0xff) & (GPIO_PIN_4));
+
+        uint32_t old_buttons = gButtons;    // save previous button state
+        ButtonDebounce(gpio_buttons);       // Run the button debouncer. The result is in gButtons.
+        ButtonReadJoystick();               // Convert joystick state to button presses. The result is in gButtons.
+        uint32_t presses = ~old_buttons & gButtons;   // detect button presses (transitions from not pressed to pressed)
+        presses |= ButtonAutoRepeat();
+        char operation;
+
+        if (presses & 2) { // EK-TM4C1294XL button 3 pressed
+            operation = g;
+            Mailbox_post(mailbox0, &operation, TIMEOUT);
+        }
+
+        if (presses & 4) { // EK-TM4C1294XL button 3 pressed
+            operation = v;
+            Mailbox_post(mailbox0, &operation, TIMEOUT);
+        }
+
+        if (presses & 8) { // EK-TM4C1294XL button 4 pressed
+            operation = t;
+            Mailbox_post(mailbox0, &operation, TIMEOUT);
+        }
+    }
+}
+
+void User_Input(Uarg arg1, Uarg arg2) {
+    while (true) {
+        if (Mailbox_pend(mailbox0, &operation, TIMEOUT) {
+
+        }
+    }
+
+}
 
 
 void signal_init() {
