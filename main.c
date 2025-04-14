@@ -31,6 +31,7 @@
 #include "driverlib/pwm.h"
 #include "driverlib/pin_map.h"
 #include "random.h"
+#include "driverlib/fpu.h"
 #define PWM_FREQUENCY 20000 // PWM frequency = 20 kHz
 #define LCD_VERTICAL_MAX 128
 #define ADC_BUFFER_SIZE 2048
@@ -85,9 +86,6 @@ int main(void)
     GrContextInit(&sContext, &g_sCrystalfontz128x128); // Initialize the grlib graphics context
     GrContextFontSet(&sContext, &g_sFontFixed6x8); // select font
 
-    // full-screen rectangle
-    tRectangle rectFullScreen = {0, 0, (GrContextDpyWidthGet(&sContext)-1), (GrContextDpyHeightGet(&sContext)-1)};
-
     ButtonInit(); //Initialize Buttons
     signal_init();
     init_CPU_Measure();
@@ -95,7 +93,7 @@ int main(void)
     init_ADC1();
     init_ADC_Timer();
 
-    init_Grid(&sContext, &rectFullScreen);
+    init_Grid(&sContext);
     init_Measure(&sContext);
 
     /* Start BIOS */
@@ -142,7 +140,7 @@ int main(void)
     return (0);
 }
 
-void WaveformTask_func(Uarg arg1, Uarg arg2) {
+void WaveformTask_func(UArg arg1, UArg arg2) {
     IntMasterEnable();
     while (true) {
         Semaphore_pend(WaveformSem, BIOS_WAIT_FOREVER);
@@ -155,7 +153,7 @@ void WaveformTask_func(Uarg arg1, Uarg arg2) {
     }
 }
 
-void ProcessingTask_func(Uarg arg1, Uarg arg2) {
+void ProcessingTask_func(UArg arg1, UArg arg2) {
     IntMasterEnable();
 
     while (true) {
@@ -174,22 +172,21 @@ void ProcessingTask_func(Uarg arg1, Uarg arg2) {
     }
 }
 
-void DisplayTask_func(Uarg arg1, Uarg arg2) {
+void DisplayTask_func(UArg arg1, UArg arg2) {
     IntMasterEnable();
 
     while (true) {
         Semaphore_pend(DisplaySem, BIOS_WAIT_FOREVER);
-        extern tRectangle rectFullScreen;
-        plot_data(&sContext, Data_Buffer, &rectFullScreen);
+        plot_data(&sContext, Data_Buffer);
         GrFlush(&sContext); // flush the frame buffer to the LCD
     }
 }
 
-void clk_func(Uarg arg1) {
+/*void clk_func(UArg arg1) {
     Semaphore_post(ButtonSem);
-}
+} */
 
-void Button_Task(Uarg arg1, Uarg arg2) {
+void Button_Task(UArg arg1, UArg arg2) {
     while(true) {
         Semaphore_pend(ButtonSem, BIOS_WAIT_FOREVER);
         uint32_t gpio_buttons =
@@ -206,29 +203,43 @@ void Button_Task(Uarg arg1, Uarg arg2) {
         char operation;
 
         if (presses & 2) { // EK-TM4C1294XL button 3 pressed
-            operation = g;
-            Mailbox_post(mailbox0, &operation, TIMEOUT);
+            operation = 'g';
+            Mailbox_post(mailbox0, &operation, BIOS_WAIT_FOREVER);
         }
 
         if (presses & 4) { // EK-TM4C1294XL button 3 pressed
-            operation = v;
-            Mailbox_post(mailbox0, &operation, TIMEOUT);
+            operation = 'v';
+            Mailbox_post(mailbox0, &operation, BIOS_WAIT_FOREVER);
         }
 
         if (presses & 8) { // EK-TM4C1294XL button 4 pressed
-            operation = t;
-            Mailbox_post(mailbox0, &operation, TIMEOUT);
+            operation = 't';
+            Mailbox_post(mailbox0, &operation, BIOS_WAIT_FOREVER);
         }
     }
 }
 
-void User_Input(Uarg arg1, Uarg arg2) {
+void User_Input(UArg arg1, UArg arg2) {
     while (true) {
-        if (Mailbox_pend(mailbox0, &operation, TIMEOUT) {
-
+        char operation;
+        if (Mailbox_pend(mailbox0, &operation, BIOS_WAIT_FOREVER)) {
+            if (operation == 'g') {
+                triggerType = triggerType ^ 1;
+            } else if (operation == 'v') {
+                if (voltsPerDiv == 4) {
+                    voltsPerDiv = 0;
+                } else {
+                    voltsPerDiv++;
+                }
+            } else if (operation == 't') {
+                if (tSet == 11) {
+                    tSet = 0;
+                } else {
+                    tSet++;
+                }
+            }
         }
     }
-
 }
 
 

@@ -33,10 +33,18 @@ extern volatile int triggerType;
 extern float cpu_load;
 extern volatile int tSet;
 
-void init_Grid(void * sContextAdr, void * rectAdr) {
+
+
+void init_Grid(tContext * sContextAdr) {
+
+    // full-screen rectangle
+    tRectangle rectFullScreen = {0,
+                                 0,
+                                 (GrContextDpyWidthGet(sContextAdr)-1),
+                                 (GrContextDpyHeightGet(sContextAdr)-1)};
 
     GrContextForegroundSet(sContextAdr, ClrBlack);
-    GrRectFill(sContextAdr, rectAdr); // fill screen with black
+    GrRectFill(sContextAdr, &rectFullScreen); // fill screen with black
     GrContextForegroundSet(sContextAdr , ClrBlue);
     GrLineDrawH(sContextAdr, 0, 128, Y_MID);
     GrLineDrawH(sContextAdr, 0, 128, Y_MID - PIXELS_PER_DIV);
@@ -60,9 +68,9 @@ void init_Grid(void * sContextAdr, void * rectAdr) {
 }
 
 
-void plot_data(void * sContextAdr, volatile uint16_t data[128], void * rectAdr) {
+void plot_data(tContext * sContextAdr, volatile uint16_t data[128]) {
 
-    init_Grid(sContextAdr, rectAdr);
+    init_Grid(sContextAdr);
     GrContextForegroundSet(sContextAdr, ClrYellow);
     volatile uint16_t buffer[128];
     int x;
@@ -75,7 +83,7 @@ void plot_data(void * sContextAdr, volatile uint16_t data[128], void * rectAdr) 
     init_Measure(sContextAdr);
 }
 
-void init_Measure(void * sContextAdr) {
+void init_Measure(tContext * sContextAdr) {
 
     //Draw Trigger Mode
     GrContextForegroundSet(sContextAdr , ClrWhite);

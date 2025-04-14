@@ -18,7 +18,15 @@
 #include "sysctl_pll.h"
 #include "buttons.h"
 #include "inc/tm4c1294ncpdt.h"
-#include "random.h"
+
+/* XDCtools Header files */
+#include <xdc/std.h>
+#include <xdc/runtime/System.h>
+#include <xdc/cfg/global.h>
+
+/* BIOS Header files */
+#include <ti/sysbios/BIOS.h>
+#include <ti/sysbios/knl/Task.h>
 
 
 // public globals
@@ -164,8 +172,16 @@ uint32_t ButtonAutoRepeat(void)
     return presses;
 }
 
+
+
+
 // ISR for scanning and debouncing buttons
 void ButtonISR(void) {
+
+    Semaphore_post(ButtonSem);
+
+}
+/*
     TimerIntClear(TIMER0_BASE, TIMER_TIMA_TIMEOUT); // clear interrupt flag
 
     // read hardware button state
@@ -207,4 +223,4 @@ void ButtonISR(void) {
         if (tic) gTime++; // increment time every other ISR call
         tic = !tic;
     }
-}
+} */
