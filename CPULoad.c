@@ -5,10 +5,10 @@
  *      Author: jason
  */
 
+#include "random.h"
 #include <stdint.h>
 #include <stdbool.h>
 #include "inc/hw_memmap.h"
-#include "inc/hw_ints.h"
 #include "inc/tm4c1294ncpdt.h"
 #include "driverlib/fpu.h"
 #include "driverlib/sysctl.h"

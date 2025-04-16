@@ -8,12 +8,14 @@
 #ifndef RANDOM_H_
 #define RANDOM_H_
 
-struct tContext;
+#include <stdint.h>
+#include <stdbool.h>
+#include "grlib/grlib.h"
 
 void signal_init();
 void init_ADC1();
 void init_Grid(tContext * sContextAdr);
-void plot_data(tContext * sContextAdr, volatile uint16_t data[128]);
+void plot_data(tContext * sContextAdr, volatile int16_t data[128]);
 int fifo_put(int data);
 int fifo_get(int * data);
 int Trigger(void);

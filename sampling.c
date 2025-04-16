@@ -48,9 +48,6 @@ void init_ADC1(){
     ADCSequenceEnable(ADC1_BASE, 0);
     // enable sequence 0 interrupt in the ADC1 peripheral
     ADCIntEnable(ADC1_BASE, 0);
-    IntPrioritySet(INT_ADC1SS0,0); // set ADC1 sequence 0 interrupt priority
-    // enable ADC1 sequence 0 interrupt in int. controller
-    IntEnable(INT_ADC1SS0);
 
 }
 

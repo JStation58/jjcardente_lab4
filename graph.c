@@ -68,7 +68,7 @@ void init_Grid(tContext * sContextAdr) {
 }
 
 
-void plot_data(tContext * sContextAdr, volatile uint16_t data[128]) {
+void plot_data(tContext * sContextAdr, volatile int16_t data[128]) {
 
     init_Grid(sContextAdr);
     GrContextForegroundSet(sContextAdr, ClrYellow);

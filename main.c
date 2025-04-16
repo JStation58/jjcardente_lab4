@@ -45,7 +45,7 @@
 volatile float fVoltsPerDiv[5] = {0.1, 0.2, 0.5, 1, 2};
 
 volatile uint16_t Data_Buffer[128];
-volatile uint16_t Scaled_Buffer[128];
+volatile int16_t Scaled_Buffer[128];
 
 tContext sContext;
 
@@ -89,7 +89,6 @@ int main(void)
     ButtonInit(); //Initialize Buttons
     signal_init();
     init_CPU_Measure();
-    IntMasterEnable(); //Enable Interrupts
     init_ADC1();
     init_ADC_Timer();
 
@@ -99,85 +98,57 @@ int main(void)
     /* Start BIOS */
     BIOS_start();
 
-    /*while (true) {
-        int index = ADC_BUFFER_WRAP(Trigger() - LCD_VERTICAL_MAX/2);
-        int x;
-        for (x = 0; x < LCD_VERTICAL_MAX; x++) {
-            Data_Buffer[x] = gADCBuffer[ADC_BUFFER_WRAP(index + x)];
-        }
-        plot_data(&sContext, Data_Buffer, &rectFullScreen);
-        GrFlush(&sContext); // flush the frame buffer to the LCD
-
-
-        //if (OpFlag == 1) {
-        //    OpFlag = 0;
-
-
-        int op = 0;
-        fifo_get(&op);
-        if (op == 3) {
-            triggerType = triggerType ^ 1;
-        } else if (op == 1) {
-            if (voltsPerDiv == 4) {
-                voltsPerDiv = 0;
-            } else {
-                voltsPerDiv++;
-            }
-        } else if (op ==2) {
-            if (tSet == 11) {
-                tSet = 0;
-            } else {
-                tSet++;
-            }
-            Time_Scale(tSet);
-
-        }
-        count_loaded = cpu_load_count();
-        cpu_load = 1.0f - (float)count_loaded/count_unloaded; // compute CPU load
-
-    } */
-
     return (0);
 }
 
 void WaveformTask_func(UArg arg1, UArg arg2) {
     IntMasterEnable();
+    Semaphore_post(CriticalSem);
     while (true) {
         Semaphore_pend(WaveformSem, BIOS_WAIT_FOREVER);
         int index = Trigger() - LCD_DIMENSION/2;
         int x;
+        Semaphore_pend(CriticalSem, BIOS_WAIT_FOREVER);
         for (x = 0; x < LCD_VERTICAL_MAX; x++) {
             Data_Buffer[x] = gADCBuffer[ADC_BUFFER_WRAP(index + x)];
         }
+        Semaphore_post(CriticalSem);
         Semaphore_post(ProcessingSem);
     }
 }
 
 void ProcessingTask_func(UArg arg1, UArg arg2) {
-    IntMasterEnable();
+    //IntMasterEnable();
 
     while (true) {
         Semaphore_pend(ProcessingSem, BIOS_WAIT_FOREVER);
         float fScale = (VIN_RANGE * PIXELS_PER_DIV)/((1 << ADC_BITS) * fVoltsPerDiv[voltsPerDiv]);
-        uint32_t Scaled_Data[128] = {0};
         int x;
+        Semaphore_pend(CriticalSem, BIOS_WAIT_FOREVER);
         for (x = 1; x < 128; x++) {
-            Scaled_Data[x] = LCD_VERTICAL_MAX/2 - (int)roundf(fScale * ((int)(Data_Buffer[x]) - ADC_OFFSET));
-            if (Scaled_Data[x] > LCD_VERTICAL_MAX - 1) {
-                Scaled_Data[x] = LCD_VERTICAL_MAX - 1;
+            Scaled_Buffer[x] = LCD_VERTICAL_MAX/2 - (int)roundf(fScale * ((int)(Data_Buffer[x]) - ADC_OFFSET));
+            if (Scaled_Buffer[x] > LCD_VERTICAL_MAX - 1) {
+                Scaled_Buffer[x] = LCD_VERTICAL_MAX - 1;
+            } else if (Scaled_Buffer[x] < 0) {
+                Scaled_Buffer[x] = 4;
             }
         }
+        Semaphore_post(CriticalSem);
         Semaphore_post(DisplaySem);
         Semaphore_post(WaveformSem);
     }
 }
 
 void DisplayTask_func(UArg arg1, UArg arg2) {
-    IntMasterEnable();
+    //IntMasterEnable();
 
     while (true) {
         Semaphore_pend(DisplaySem, BIOS_WAIT_FOREVER);
-        plot_data(&sContext, Data_Buffer);
+        Semaphore_pend(CriticalSem, BIOS_WAIT_FOREVER);
+        count_loaded = cpu_load_count();
+        cpu_load = 1.0f - (float)count_loaded/count_unloaded; // compute CPU load
+        plot_data(&sContext, Scaled_Buffer);
+        Semaphore_post(CriticalSem);
         GrFlush(&sContext); // flush the frame buffer to the LCD
     }
 }
@@ -223,6 +194,7 @@ void User_Input(UArg arg1, UArg arg2) {
     while (true) {
         char operation;
         if (Mailbox_pend(mailbox0, &operation, BIOS_WAIT_FOREVER)) {
+            Semaphore_pend(CriticalSem, BIOS_WAIT_FOREVER);
             if (operation == 'g') {
                 triggerType = triggerType ^ 1;
             } else if (operation == 'v') {
@@ -238,6 +210,7 @@ void User_Input(UArg arg1, UArg arg2) {
                     tSet++;
                 }
             }
+            Semaphore_post(CriticalSem);
         }
     }
 }
