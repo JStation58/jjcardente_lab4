@@ -7,7 +7,7 @@
         <srcFile name="package/cfg/rtos_pem4f.c"/>
     </sources>
     <configscripts>
-        <srcFile name="C:/Users/jason/workspace_v12/ece3849_lab3_jjcardente/rtos.cfg"/>
+        <srcFile name="C:/Users/sofal/git/jjcardente_lab4/rtos.cfg"/>
     </configscripts>
     <makefiles>
         <srcFile name="package.mak" src="package.bld"/>
@@ -25,7 +25,7 @@
             platform="ti.platforms.tiva:TM4C1294NCPDT:1"
             isa="v7M4"
             suffix="em4f"
-            rootDir="C:/ti/ccs1250/ccs/tools/compiler/ti-cgt-arm_20.2.7.LTS"
+            rootDir="C:/ti/ccs1260/ccs/tools/compiler/ti-cgt-arm_20.2.7.LTS"
             os="undefined"
             rts="ti.targets.arm.rtsarm">
             <model endian="little"
@@ -44,7 +44,7 @@
         isPartial="false"
         xCfgScript="package/cfg/rtos_pem4f.cfg"
         xCfgPrefix="package/cfg/rtos_pem4f"
-        cfgScript="C:/Users/jason/workspace_v12/ece3849_lab3_jjcardente/rtos.cfg"
+        cfgScript="C:/Users/sofal/git/jjcardente_lab4/rtos.cfg"
         cfgArgs="null"
         />
     </configurations>
@@ -56,7 +56,7 @@
         profile="release"
         xCfgScript="package/cfg/rtos_pem4f.cfg"
         xCfgPrefix="package/cfg/rtos_pem4f"
-        cfgScript="C:/Users/jason/workspace_v12/ece3849_lab3_jjcardente/rtos.cfg"
+        cfgScript="C:/Users/sofal/git/jjcardente_lab4/rtos.cfg"
         cfgArgs="null"
         />
     </executables>

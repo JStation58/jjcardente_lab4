@@ -45,7 +45,7 @@
 volatile float fVoltsPerDiv[5] = {0.1, 0.2, 0.5, 1, 2};
 
 volatile uint16_t Data_Buffer[128];
-volatile int16_t Scaled_Buffer[128];
+volatile uint16_t Scaled_Buffer[128];
 
 tContext sContext;
 
@@ -61,6 +61,18 @@ extern volatile int fifo_head;
 extern volatile int fifo_tail;
 volatile int tSet = 11;
 
+//Oscilloscope Setting Variables
+int fft_mode = 0; //init false (0)
+
+
+//FFT Includes and Defines
+#include "kiss_fft.h"
+#include "_kiss_fft_guts.h"
+
+#define PI 3.14159265358979f
+#define NFFT 1024
+#define KISS_FFT_CFG_SIZE (sizeof(struct kiss_fft_state) + sizeof(kiss_fft_cpx) * (NFFT - 1))
+
 uint32_t gSystemClock = 120000000; // [Hz] system clock frequency
 
 /*
@@ -72,90 +84,118 @@ int main(void)
 
     // hardware initialization goes here
 
- // Enable the Floating Point Unit, and permit ISRs to use it
-    FPUEnable();
-    FPULazyStackingEnable();
+    // Enable the Floating Point Unit, and permit ISRs to use it
+//    FPUEnable();
+//    FPULazyStackingEnable();
 
     // Initialize the system clock to 120 MHz
-    gSystemClock = SysCtlClockFreqSet(SYSCTL_XTAL_25MHZ | SYSCTL_OSC_MAIN | SYSCTL_USE_PLL | SYSCTL_CFG_VCO_480, 120000000);
+//    gSystemClock = SysCtlClockFreqSet(SYSCTL_XTAL_25MHZ | SYSCTL_OSC_MAIN | SYSCTL_USE_PLL | SYSCTL_CFG_VCO_480, 120000000);
 
     Crystalfontz128x128_Init(); // Initialize the LCD display driver
     Crystalfontz128x128_SetOrientation(LCD_ORIENTATION_UP); // set screen orientation
 
-
     GrContextInit(&sContext, &g_sCrystalfontz128x128); // Initialize the grlib graphics context
     GrContextFontSet(&sContext, &g_sFontFixed6x8); // select font
 
-    ButtonInit(); //Initialize Buttons
-    signal_init();
-    init_CPU_Measure();
-    init_ADC1();
-    init_ADC_Timer();
-
-    init_Grid(&sContext);
-    init_Measure(&sContext);
+    ButtonInit(); //Initialize Buttons   NO CRASHES
+    signal_init(); //GOOD
+    init_CPU_Measure(); //GOOD
+//    IntMasterEnable(); //Enable Interrupts
+    init_ADC1(); //GOOD READS A WAVE!
+    init_ADC_Timer(); //GOOD
+//
+    init_Grid(&sContext); //GOOD
+//    init_Measure(&sContext); //CUPLRIT!!
 
     /* Start BIOS */
     BIOS_start();
-
     return (0);
 }
 
 void WaveformTask_func(UArg arg1, UArg arg2) {
     IntMasterEnable();
-    Semaphore_post(CriticalSem);
     while (true) {
         Semaphore_pend(WaveformSem, BIOS_WAIT_FOREVER);
         int index = Trigger() - LCD_DIMENSION/2;
         int x;
-        Semaphore_pend(CriticalSem, BIOS_WAIT_FOREVER);
         for (x = 0; x < LCD_VERTICAL_MAX; x++) {
+            //dataBuffer scales NFFT samples
             Data_Buffer[x] = gADCBuffer[ADC_BUFFER_WRAP(index + x)];
         }
-        Semaphore_post(CriticalSem);
         Semaphore_post(ProcessingSem);
     }
 }
 
 void ProcessingTask_func(UArg arg1, UArg arg2) {
-    //IntMasterEnable();
+    IntMasterEnable();
+
+    // Kiss FFT config memory
+    static char kiss_fft_cfg_buffer[KISS_FFT_CFG_SIZE];
+    size_t buffer_size = KISS_FFT_CFG_SIZE;
+    kiss_fft_cfg cfg; // Kiss FFT config
+
+    // complex waveform and spectrum buffers
+    static kiss_fft_cpx in[NFFT], out[NFFT];
+    int i;
+    int x;
+
+    // init Kiss FFT
+    cfg = kiss_fft_alloc(NFFT, 0, kiss_fft_cfg_buffer, &buffer_size);
+
+    // WINDOW FUNCTION
+    static float w[NFFT];
+    for (i = 0; i < NFFT; i++) {
+        // Blackman window
+        w[i] = 0.42f - 0.5f * cosf(2*PI*i/(NFFT-1))
+        + 0.08f * cosf(4*PI*i/(NFFT-1));
+    }
 
     while (true) {
-        Semaphore_pend(ProcessingSem, BIOS_WAIT_FOREVER);
-        float fScale = (VIN_RANGE * PIXELS_PER_DIV)/((1 << ADC_BITS) * fVoltsPerDiv[voltsPerDiv]);
-        int x;
-        Semaphore_pend(CriticalSem, BIOS_WAIT_FOREVER);
-        for (x = 1; x < 128; x++) {
-            Scaled_Buffer[x] = LCD_VERTICAL_MAX/2 - (int)roundf(fScale * ((int)(Data_Buffer[x]) - ADC_OFFSET));
-            if (Scaled_Buffer[x] > LCD_VERTICAL_MAX - 1) {
-                Scaled_Buffer[x] = LCD_VERTICAL_MAX - 1;
-            } else if (Scaled_Buffer[x] < 0) {
-                Scaled_Buffer[x] = 4;
+        Semaphore_pend(ProcessingSem, BIOS_WAIT_FOREVER); // from waveform
+
+        // FFT Wave
+        if(fft_mode){
+            for (i = 0; i < NFFT; i++){     // generate input wave
+//                in[i].r = sinf(20*PI*i/NFFT);   // Real part
+                in[i].r = ((float)Data_Buffer[i] - NFFT) * w[i];
+                in[i].i = 0;                    // imaginary Part
+            }
+            kiss_fft(cfg, in, out);             // compute FFT
+
+            //convert 128 samples of out[] to db and display
+            for (x = 0; x < 128 ; x++) {
+                Scaled_Buffer[x] = 10*log10f(out[x].r * out[x].r + out[x].i * out[x].i);  // convert to db (r^2 + i^2)
+//
+//                if (Scaled_Buffer[x] > LCD_VERTICAL_MAX - 1) {
+//                    Scaled_Buffer[x] = LCD_VERTICAL_MAX - 1;
+//                }
+            }
+
+        } else{
+            // Original Sampled Wave
+            float fScale = (VIN_RANGE * PIXELS_PER_DIV)/((1 << ADC_BITS) * fVoltsPerDiv[voltsPerDiv]);
+
+            for (x = 0; x < 128; x++) {
+                Scaled_Buffer[x] = LCD_VERTICAL_MAX/2 - (int)roundf(fScale * ((int)(Data_Buffer[x]) - ADC_OFFSET));
+                if (Scaled_Buffer[x] > LCD_VERTICAL_MAX - 1) {
+                    Scaled_Buffer[x] = LCD_VERTICAL_MAX - 1;
+                }
             }
         }
-        Semaphore_post(CriticalSem);
         Semaphore_post(DisplaySem);
         Semaphore_post(WaveformSem);
     }
 }
 
 void DisplayTask_func(UArg arg1, UArg arg2) {
-    //IntMasterEnable();
+    IntMasterEnable();
 
     while (true) {
         Semaphore_pend(DisplaySem, BIOS_WAIT_FOREVER);
-        Semaphore_pend(CriticalSem, BIOS_WAIT_FOREVER);
-        count_loaded = cpu_load_count();
-        cpu_load = 1.0f - (float)count_loaded/count_unloaded; // compute CPU load
         plot_data(&sContext, Scaled_Buffer);
-        Semaphore_post(CriticalSem);
         GrFlush(&sContext); // flush the frame buffer to the LCD
     }
 }
-
-/*void clk_func(UArg arg1) {
-    Semaphore_post(ButtonSem);
-} */
 
 void Button_Task(UArg arg1, UArg arg2) {
     while(true) {
@@ -173,6 +213,10 @@ void Button_Task(UArg arg1, UArg arg2) {
         presses |= ButtonAutoRepeat();
         char operation;
 
+        if (presses & 1) { // EK-TM4C1294XL button 4 pressed
+            operation = 'f';  //FFT Toggle
+            Mailbox_post(mailbox0, &operation, BIOS_WAIT_FOREVER);
+        }
         if (presses & 2) { // EK-TM4C1294XL button 3 pressed
             operation = 'g';
             Mailbox_post(mailbox0, &operation, BIOS_WAIT_FOREVER);
@@ -194,7 +238,6 @@ void User_Input(UArg arg1, UArg arg2) {
     while (true) {
         char operation;
         if (Mailbox_pend(mailbox0, &operation, BIOS_WAIT_FOREVER)) {
-            Semaphore_pend(CriticalSem, BIOS_WAIT_FOREVER);
             if (operation == 'g') {
                 triggerType = triggerType ^ 1;
             } else if (operation == 'v') {
@@ -209,8 +252,9 @@ void User_Input(UArg arg1, UArg arg2) {
                 } else {
                     tSet++;
                 }
+            } else if (operation == 'f') {
+                fft_mode = fft_mode ^ 1;
             }
-            Semaphore_post(CriticalSem);
         }
     }
 }
@@ -241,10 +285,8 @@ void signal_init() {
 
 int Trigger(void) { // search for rising edge trigger
 
-    // Step 1
     int x = gADCBufferIndex - LCD_DIMENSION/2;
 
-    // Step 2
     int x_stop = x - ADC_BUFFER_SIZE/2;
         for (; x > x_stop; x--) {
             if (triggerType == 0) {
@@ -256,11 +298,8 @@ int Trigger(void) { // search for rising edge trigger
             }
         }
 
-    // Step 3
     if (x == x_stop) { // for loop ran to the end
         x = gADCBufferIndex - LCD_DIMENSION/2;; // reset x back to how it was initialized
     }
     return x;
 }
-
-

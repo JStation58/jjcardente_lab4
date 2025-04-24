@@ -49,6 +49,9 @@ void init_ADC1(){
     // enable sequence 0 interrupt in the ADC1 peripheral
     ADCIntEnable(ADC1_BASE, 0);
 
+//    ADCSequenceDMAEnable(ADC1_BASE, 0); // enable DMA for ADC1 sequence 0
+//    ADCIntEnableEx(...); // enable ADC1 sequence 0 DMA interrupt
+
 }
 
 void ADC_ISR(void) {
@@ -64,8 +67,64 @@ void ADC_ISR(void) {
     // read sample from the ADC1 sequence 0 FIFO
     gADCBuffer[gADCBufferIndex] = ADC1_SSFIFO0_R;
 
+//    DMA ADC ISR
+//    ADCIntClearEx(...); // clear the ADC1 sequence 0 DMA interrupt flag
+//    // Check the primary DMA channel for end of transfer, and
+//    // restart if needed.
+//    if (uDMAChannelModeGet(UDMA_SEC_CHANNEL_ADC10 | UDMA_PRI_SELECT) == UDMA_MODE_STOP) {
+    //    // restart the primary channel (same as setup)
+    //    uDMAChannelTransferSet(...);
+    //    // DMA is currently occurring in the alternate buffer
+    //    gDMAPrimary = false;
+//    } else{
+//    }
+//    // Check the alternate DMA channel for end of transfer, and
+//    // restart if needed.
+//    // Also set the gDMAPrimary global.
+//    <...>
+
+//    // The DMA channel may be disabled if the CPU is paused by the debugger
+//    if (!uDMAChannelIsEnabled(UDMA_SEC_CHANNEL_ADC10)) {
+//    // re-enable the DMA channel
+//    uDMAChannelEnable(UDMA_SEC_CHANNEL_ADC10);
+//    }
+
 }
 
+//comment out the definition of gADCBufferIndex
+//int32_t getADCBufferIndex(void)
+//{
+//int32_t index;
+//if (gDMAPrimary) { // DMA is currently in the primary channel
+//index = ADC_BUFFER_SIZE/2 - 1 -
+//uDMAChannelSizeGet(UDMA_SEC_CHANNEL_ADC10 |
+//UDMA_PRI_SELECT);
+//} else { // DMA is currently in the alternate channel
+//index = ADC_BUFFER_SIZE - 1 -
+//uDMAChannelSizeGet(UDMA_SEC_CHANNEL_ADC10 |
+//UDMA_ALT_SELECT);
+//}
+//return index;
+//}
+
+
+//Git Hub Code
+//int32_t getADCBufferIndex(void)
+//{
+//    int32_t index;
+//    IArg key;
+//    key = GateHwi_enter(gateHwi0);
+//    if (gDMAPrimary) { // DMA is currently in the primary channel
+//        index = ADC_BUFFER_SIZE/2 - 1 -
+//                uDMAChannelSizeGet(UDMA_SEC_CHANNEL_ADC10 | UDMA_PRI_SELECT);
+//    }
+//    else { // DMA is currently in the alternate channel
+//        index = ADC_BUFFER_SIZE - 1 -
+//                uDMAChannelSizeGet(UDMA_SEC_CHANNEL_ADC10 | UDMA_ALT_SELECT);
+//    }
+//    GateHwi_leave(gateHwi0, key);
+//    return index;
+//}
 
 
 

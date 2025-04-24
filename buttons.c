@@ -181,46 +181,4 @@ void ButtonISR(void) {
     Semaphore_post(ButtonSem);
 
 }
-/*
-    TimerIntClear(TIMER0_BASE, TIMER_TIMA_TIMEOUT); // clear interrupt flag
 
-    // read hardware button state
-    uint32_t gpio_buttons =
-            ~GPIOPinRead(GPIO_PORTJ_BASE, 0xff) & (GPIO_PIN_1 | GPIO_PIN_0); // EK-TM4C1294XL buttons in positions 0 and 1
-
-            gpio_buttons |= (~GPIOPinRead(GPIO_PORTH_BASE, 0xff) & (GPIO_PIN_1))<< 1;
-            gpio_buttons |= (~GPIOPinRead(GPIO_PORTK_BASE, 0xff) & (GPIO_PIN_6))>> 3;
-            gpio_buttons |= (~GPIOPinRead(GPIO_PORTD_BASE, 0xff) & (GPIO_PIN_4));
-
-    uint32_t old_buttons = gButtons;    // save previous button state
-    ButtonDebounce(gpio_buttons);       // Run the button debouncer. The result is in gButtons.
-    ButtonReadJoystick();               // Convert joystick state to button presses. The result is in gButtons.
-    uint32_t presses = ~old_buttons & gButtons;   // detect button presses (transitions from not pressed to pressed)
-    presses |= ButtonAutoRepeat();      // autorepeat presses if a button is held long enough
-
-    static bool tic = false;
-    static bool running = true;
-
-    if (presses & 1) { // EK-TM4C1294XL button 1 pressed
-        //DataFlag = 1;
-    }
-
-    if (presses & 2) { // EK-TM4C1294XL button 3 pressed
-        fifo_put(3);
-    }
-
-
-    if (presses & 4) { // EK-TM4C1294XL button 3 pressed
-        fifo_put(1);
-    }
-
-    if (presses & 8) { // EK-TM4C1294XL button 4 pressed
-        fifo_put(2);
-    }
-
-
-    if (running) {
-        if (tic) gTime++; // increment time every other ISR call
-        tic = !tic;
-    }
-} */
