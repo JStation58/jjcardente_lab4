@@ -44,12 +44,18 @@
 
 volatile float fVoltsPerDiv[5] = {0.1, 0.2, 0.5, 1, 2};
 
-volatile uint16_t Data_Buffer[128];
-volatile uint16_t Scaled_Buffer[128];
+
+//FFT Includes and Defines
+#include "kiss_fft.h"
+#include "_kiss_fft_guts.h"
+
+#define PI 3.14159265358979f
+#define NFFT 1024
+#define KISS_FFT_CFG_SIZE (sizeof(struct kiss_fft_state) + sizeof(kiss_fft_cpx) * (NFFT - 1))
 
 tContext sContext;
 
-
+//ADC Buffers
 extern volatile uint16_t gADCBuffer[ADC_BUFFER_SIZE];
 extern volatile int32_t gADCBufferIndex;
 volatile int triggerType = 0;
@@ -61,17 +67,15 @@ extern volatile int fifo_head;
 extern volatile int fifo_tail;
 volatile int tSet = 11;
 
+//Sampled Data Buffers
+volatile uint16_t Data_Buffer[NFFT];
+volatile int16_t Scaled_Buffer[NFFT];
+
 //Oscilloscope Setting Variables
 int fft_mode = 0; //init false (0)
 
 
-//FFT Includes and Defines
-#include "kiss_fft.h"
-#include "_kiss_fft_guts.h"
 
-#define PI 3.14159265358979f
-#define NFFT 1024
-#define KISS_FFT_CFG_SIZE (sizeof(struct kiss_fft_state) + sizeof(kiss_fft_cpx) * (NFFT - 1))
 
 uint32_t gSystemClock = 120000000; // [Hz] system clock frequency
 
@@ -118,9 +122,15 @@ void WaveformTask_func(UArg arg1, UArg arg2) {
         Semaphore_pend(WaveformSem, BIOS_WAIT_FOREVER);
         int index = Trigger() - LCD_DIMENSION/2;
         int x;
-        for (x = 0; x < LCD_VERTICAL_MAX; x++) {
-            //dataBuffer scales NFFT samples
-            Data_Buffer[x] = gADCBuffer[ADC_BUFFER_WRAP(index + x)];
+
+        if(fft_mode){
+            for (x = 0; x < NFFT; x++) {
+                Data_Buffer[x] = gADCBuffer[ADC_BUFFER_WRAP(index + x)];
+            }
+        }else{
+            for (x = 0; x < LCD_VERTICAL_MAX; x++) {
+                Data_Buffer[x] = gADCBuffer[ADC_BUFFER_WRAP(index + x)];
+            }
         }
         Semaphore_post(ProcessingSem);
     }
@@ -164,11 +174,7 @@ void ProcessingTask_func(UArg arg1, UArg arg2) {
 
             //convert 128 samples of out[] to db and display
             for (x = 0; x < 128 ; x++) {
-                Scaled_Buffer[x] = 10*log10f(out[x].r * out[x].r + out[x].i * out[x].i);  // convert to db (r^2 + i^2)
-//
-//                if (Scaled_Buffer[x] > LCD_VERTICAL_MAX - 1) {
-//                    Scaled_Buffer[x] = LCD_VERTICAL_MAX - 1;
-//                }
+                Scaled_Buffer[x] = (int)roundf(LCD_VERTICAL_MAX - (10*log10f(out[x].r * out[x].r + out[x].i * out[x].i)));  // convert to db (r^2 + i^2)
             }
 
         } else{
@@ -179,6 +185,8 @@ void ProcessingTask_func(UArg arg1, UArg arg2) {
                 Scaled_Buffer[x] = LCD_VERTICAL_MAX/2 - (int)roundf(fScale * ((int)(Data_Buffer[x]) - ADC_OFFSET));
                 if (Scaled_Buffer[x] > LCD_VERTICAL_MAX - 1) {
                     Scaled_Buffer[x] = LCD_VERTICAL_MAX - 1;
+                } else if (Scaled_Buffer[x] < 0){
+                    Scaled_Buffer[x] = 4;
                 }
             }
         }
@@ -192,7 +200,13 @@ void DisplayTask_func(UArg arg1, UArg arg2) {
 
     while (true) {
         Semaphore_pend(DisplaySem, BIOS_WAIT_FOREVER);
+
+        //Print Waveform to LCD Screen
         plot_data(&sContext, Scaled_Buffer);
+
+        // compute CPU load
+        count_loaded = cpu_load_count();
+        cpu_load = 1.0f - (float)count_loaded/count_unloaded;
         GrFlush(&sContext); // flush the frame buffer to the LCD
     }
 }
