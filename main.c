@@ -57,7 +57,7 @@ tContext sContext;
 
 //ADC Buffers
 extern volatile uint16_t gADCBuffer[ADC_BUFFER_SIZE];
-extern volatile int32_t gADCBufferIndex;
+//extern volatile int32_t gADCBufferIndex;
 volatile int triggerType = 0;
 volatile int voltsPerDiv = 3;
 float cpu_load = 0.0;
@@ -107,9 +107,10 @@ int main(void)
 //    IntMasterEnable(); //Enable Interrupts
     init_ADC1(); //GOOD READS A WAVE!
     init_ADC_Timer(); //GOOD
+    init_DMA();
 //
     init_Grid(&sContext); //GOOD
-//    init_Measure(&sContext); //CUPLRIT!!
+    init_Measure(&sContext); //CUPLRIT!!
 
     /* Start BIOS */
     BIOS_start();
@@ -299,7 +300,8 @@ void signal_init() {
 
 int Trigger(void) { // search for rising edge trigger
 
-    int x = gADCBufferIndex - LCD_DIMENSION/2;
+    int32_t trigger_index = getADCBufferIndex();
+    int x = trigger_index - LCD_DIMENSION/2;
 
     int x_stop = x - ADC_BUFFER_SIZE/2;
         for (; x > x_stop; x--) {
@@ -313,7 +315,7 @@ int Trigger(void) { // search for rising edge trigger
         }
 
     if (x == x_stop) { // for loop ran to the end
-        x = gADCBufferIndex - LCD_DIMENSION/2;; // reset x back to how it was initialized
+        x = trigger_index - LCD_DIMENSION/2;; // reset x back to how it was initialized
     }
     return x;
 }

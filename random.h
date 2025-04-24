@@ -22,7 +22,10 @@ int Trigger(void);
 void init_Measure(tContext * sContextAdr);
 void init_CPU_Measure(void);
 uint32_t cpu_load_count(void);
+
 void Time_Scale(int tSet);
 void init_ADC_Timer(void);
+void init_DMA(void);
+int32_t getADCBufferIndex(void);
 
 #endif /* RANDOM_H_ */
